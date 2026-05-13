@@ -1,8 +1,20 @@
 import 'package:flutter/material.dart';
 
 import '../../modules/fees/fee_model.dart';
-import '../theme/app_colors.dart';
-import '../theme/app_text_styles.dart';
+import '../design_system/design_system.dart';
+import '../services/whatsapp_service.dart';
+import 'skolr_avatar.dart';
+
+// ---------------------------------------------------------------------------
+// FeeCard — fee record row with status accent, amounts panel, and actions.
+//
+// Visual recipe:
+//   • Glass card surface with status-tinted left accent bar
+//   • SkolrAvatar with status-colored ring (green/red border)
+//   • Status pill in top-right (Paid / Overdue / Pending)
+//   • Inset "amounts panel" with Total/Paid/Due
+//   • Action row at bottom: "Send Reminder" (WhatsApp green) + "Mark Paid"
+// ---------------------------------------------------------------------------
 
 class FeeCard extends StatelessWidget {
   final FeeModel fee;
@@ -10,6 +22,7 @@ class FeeCard extends StatelessWidget {
   final VoidCallback onMarkPaid;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
+  final VoidCallback? onSendReminder;
 
   const FeeCard({
     super.key,
@@ -18,6 +31,7 @@ class FeeCard extends StatelessWidget {
     required this.onMarkPaid,
     required this.onEdit,
     required this.onDelete,
+    this.onSendReminder,
   });
 
   String _formatDate(DateTime d) {
@@ -32,15 +46,17 @@ class FeeCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     final isPaid = fee.isPaid;
-    final isOverdue =
-        !isPaid && fee.dueDate.isBefore(DateTime.now());
+    final isOverdue = !isPaid && fee.dueDate.isBefore(DateTime.now());
 
     final statusColor = isPaid
-        ? AppColors.success
+        ? SkolrColors.success
         : isOverdue
-            ? AppColors.error
-            : AppColors.warning;
+            ? SkolrColors.danger
+            : SkolrColors.warning;
 
     final statusLabel = isPaid
         ? 'Paid'
@@ -48,201 +64,259 @@ class FeeCard extends StatelessWidget {
             ? 'Overdue'
             : 'Pending';
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      decoration: BoxDecoration(
-        color: AppColors.white,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-          color: isPaid
-              ? AppColors.success.withValues(alpha: 0.2)
-              : isOverdue
-                  ? AppColors.error.withValues(alpha: 0.2)
-                  : AppColors.border,
+    return Padding(
+      padding: const EdgeInsets.only(bottom: SkolrSpacing.md),
+      child: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: isDark
+                ? [
+                    const Color(0x261A0F3D),
+                    const Color(0x141A0F3D),
+                  ]
+                : [Colors.white, const Color(0xFFFAFAFF)],
+          ),
+          borderRadius: SkolrRadius.xl,
+          border: Border.all(
+            color: statusColor.withValues(alpha: isDark ? 0.35 : 0.22),
+          ),
+          boxShadow: SkolrShadows.adaptiveSoft(
+            Theme.of(context).brightness,
+          ),
         ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          // ── Header ─────────────────────────────────────────────
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 14, 8, 10),
-            child: Row(
-              children: [
-                CircleAvatar(
-                  radius: 24,
-                  backgroundColor: isPaid
-                      ? AppColors.success.withValues(alpha: 0.12)
-                      : AppColors.primary.withValues(alpha: 0.1),
-                  child: Text(
-                    fee.studentName[0].toUpperCase(),
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: isPaid ? AppColors.success : AppColors.primary,
-                    ),
-                  ),
-                ),
-
-                const SizedBox(width: 12),
-
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        fee.studentName,
-                        style: AppTextStyles.heading.copyWith(fontSize: 16),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        batch,
-                        style: AppTextStyles.subheading.copyWith(fontSize: 13),
-                      ),
-                    ],
-                  ),
-                ),
-
-                // Status badge
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: statusColor.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Text(
-                    statusLabel,
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: statusColor,
-                    ),
-                  ),
-                ),
-
-                PopupMenuButton<String>(
-                  icon: const Icon(
-                    Icons.more_vert_rounded,
-                    color: AppColors.textSecondary,
-                  ),
-                  onSelected: (v) {
-                    if (v == 'edit') onEdit();
-                    if (v == 'delete') onDelete();
-                  },
-                  itemBuilder: (_) => [
-                    const PopupMenuItem(
-                      value: 'edit',
-                      child: Row(
-                        children: [
-                          Icon(Icons.edit_outlined, size: 18),
-                          SizedBox(width: 8),
-                          Text('Edit'),
-                        ],
-                      ),
-                    ),
-                    const PopupMenuItem(
-                      value: 'delete',
-                      child: Row(
-                        children: [
-                          Icon(Icons.delete_outline_rounded,
-                              size: 18, color: AppColors.error),
-                          SizedBox(width: 8),
-                          Text('Delete',
-                              style: TextStyle(color: AppColors.error)),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-
-          // ── Amounts ────────────────────────────────────────────
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-            child: Container(
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              decoration: BoxDecoration(
-                color: AppColors.background,
-                borderRadius: BorderRadius.circular(12),
+        clipBehavior: Clip.antiAlias,
+        child: Column(
+          children: [
+            // ── Header ───────────────────────────────────────────
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                SkolrSpacing.lg,
+                SkolrSpacing.lg,
+                SkolrSpacing.sm,
+                SkolrSpacing.md,
               ),
               child: Row(
                 children: [
-                  _AmountColumn(
-                    label: 'Total',
-                    value: _currency(fee.totalAmount),
-                    color: AppColors.textPrimary,
+                  SkolrAvatar(
+                    name: fee.studentName,
+                    size: SkolrAvatarSize.md,
                   ),
-                  Container(width: 1, height: 36, color: AppColors.border),
-                  _AmountColumn(
-                    label: 'Paid',
-                    value: _currency(fee.paidAmount),
-                    color: AppColors.success,
+                  const SkolrGap.md(),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          fee.studentName,
+                          style: SkolrTypography.titleMedium(
+                            color: cs.onSurface,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          batch,
+                          style: SkolrTypography.bodySmall(
+                            color: cs.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                  Container(width: 1, height: 36, color: AppColors.border),
-                  _AmountColumn(
-                    label: 'Due',
-                    value: _currency(fee.dueAmount),
-                    color: fee.dueAmount > 0 ? AppColors.error : AppColors.success,
+                  // Status pill
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: SkolrSpacing.sm,
+                      vertical: 3,
+                    ),
+                    decoration: BoxDecoration(
+                      color: statusColor.withValues(alpha: 0.18),
+                      borderRadius: SkolrRadius.full,
+                    ),
+                    child: Text(
+                      statusLabel,
+                      style: SkolrTypography.labelMedium(color: statusColor),
+                    ),
+                  ),
+                  PopupMenuButton<String>(
+                    icon: Icon(
+                      Icons.more_vert_rounded,
+                      color: cs.onSurfaceVariant,
+                    ),
+                    onSelected: (v) {
+                      if (v == 'edit') onEdit();
+                      if (v == 'delete') onDelete();
+                    },
+                    itemBuilder: (_) => [
+                      const PopupMenuItem(
+                        value: 'edit',
+                        child: Row(
+                          children: [
+                            Icon(Icons.edit_outlined, size: 18),
+                            SizedBox(width: 8),
+                            Text('Edit'),
+                          ],
+                        ),
+                      ),
+                      PopupMenuItem(
+                        value: 'delete',
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.delete_outline_rounded,
+                              size: 18,
+                              color: SkolrColors.danger,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Delete',
+                              style: TextStyle(color: SkolrColors.danger),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
             ),
-          ),
 
-          // ── Divider ────────────────────────────────────────────
-          const Divider(height: 1, color: AppColors.border),
-
-          // ── Footer ─────────────────────────────────────────────
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
-            child: Row(
-              children: [
-                const Icon(
-                  Icons.calendar_today_rounded,
-                  size: 14,
-                  color: AppColors.textSecondary,
+            // ── Amounts ─────────────────────────────────────────
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                SkolrSpacing.lg,
+                0,
+                SkolrSpacing.lg,
+                SkolrSpacing.md,
+              ),
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  vertical: SkolrSpacing.md,
                 ),
-                const SizedBox(width: 6),
-                Text(
-                  'Due ${_formatDate(fee.dueDate)}',
-                  style: AppTextStyles.subheading.copyWith(fontSize: 13),
+                decoration: BoxDecoration(
+                  color: isDark
+                      ? SkolrColors.midnight700.withValues(alpha: 0.5)
+                      : SkolrColors.lightSurfaceAlt,
+                  borderRadius: SkolrRadius.md,
                 ),
+                child: Row(
+                  children: [
+                    _Amount(
+                      label: 'Total',
+                      value: _currency(fee.totalAmount),
+                      color: cs.onSurface,
+                    ),
+                    _VerticalDivider(),
+                    _Amount(
+                      label: 'Paid',
+                      value: _currency(fee.paidAmount),
+                      color: SkolrColors.success,
+                    ),
+                    _VerticalDivider(),
+                    _Amount(
+                      label: 'Due',
+                      value: _currency(fee.dueAmount),
+                      color: fee.dueAmount > 0
+                          ? SkolrColors.danger
+                          : SkolrColors.success,
+                    ),
+                  ],
+                ),
+              ),
+            ),
 
-                const Spacer(),
-
-                if (!isPaid)
-                  GestureDetector(
-                    onTap: onMarkPaid,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 14, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: AppColors.success.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                            color: AppColors.success.withValues(alpha: 0.4)),
-                      ),
-                      child: const Text(
-                        'Mark Paid',
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.success,
-                        ),
-                      ),
+            // ── Due date row ────────────────────────────────────
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                SkolrSpacing.lg,
+                0,
+                SkolrSpacing.lg,
+                SkolrSpacing.md,
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.calendar_today_rounded,
+                    size: 13,
+                    color: cs.onSurfaceVariant,
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    'Due ${_formatDate(fee.dueDate)}',
+                    style: SkolrTypography.bodyMedium(
+                      color: cs.onSurfaceVariant,
                     ),
                   ),
-              ],
+                ],
+              ),
             ),
+
+            // ── Actions (only when unpaid) ──────────────────────
+            if (!isPaid)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  SkolrSpacing.lg,
+                  0,
+                  SkolrSpacing.lg,
+                  SkolrSpacing.lg,
+                ),
+                child: Row(
+                  children: [
+                    if (onSendReminder != null) ...[
+                      Expanded(
+                        child: _ActionButton(
+                          label: 'Send Reminder',
+                          icon: Icons.chat_rounded,
+                          color: WhatsAppService.brandGreen,
+                          onTap: onSendReminder!,
+                        ),
+                      ),
+                      const SkolrGap.sm(),
+                    ],
+                    Expanded(
+                      child: _ActionButton(
+                        label: 'Mark Paid',
+                        icon: Icons.check_circle_outline_rounded,
+                        color: SkolrColors.success,
+                        onTap: onMarkPaid,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _Amount extends StatelessWidget {
+  const _Amount({
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+  final String label;
+  final String value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Expanded(
+      child: Column(
+        children: [
+          Text(
+            value,
+            style: SkolrTypography.titleSmall(color: color)
+                .copyWith(fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            label,
+            style: SkolrTypography.bodySmall(color: cs.onSurfaceVariant),
           ),
         ],
       ),
@@ -250,39 +324,56 @@ class FeeCard extends StatelessWidget {
   }
 }
 
-class _AmountColumn extends StatelessWidget {
-  final String label;
-  final String value;
-  final Color color;
+class _VerticalDivider extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Container(width: 1, height: 32, color: cs.outlineVariant);
+  }
+}
 
-  const _AmountColumn({
+class _ActionButton extends StatelessWidget {
+  const _ActionButton({
     required this.label,
-    required this.value,
+    required this.icon,
     required this.color,
+    required this.onTap,
   });
+  final String label;
+  final IconData icon;
+  final Color color;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Expanded(
-      child: Column(
-        children: [
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: color,
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: SkolrRadius.md,
+        child: Ink(
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: isDark ? 0.14 : 0.08),
+            borderRadius: SkolrRadius.md,
+            border: Border.all(
+              color: color.withValues(alpha: isDark ? 0.4 : 0.3),
             ),
           ),
-          const SizedBox(height: 3),
-          Text(
-            label,
-            style: const TextStyle(
-              fontSize: 12,
-              color: AppColors.textSecondary,
-            ),
+          padding: const EdgeInsets.symmetric(vertical: SkolrSpacing.sm),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, color: color, size: 15),
+              const SizedBox(width: 6),
+              Text(
+                label,
+                style: SkolrTypography.labelLarge(color: color)
+                    .copyWith(fontSize: 13),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }

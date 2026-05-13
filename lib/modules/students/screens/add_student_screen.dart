@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/theme/app_text_styles.dart';
-import '../../../core/widgets/custom_textfield.dart';
+import '../../../core/design_system/design_system.dart';
 import '../../../core/widgets/primary_button.dart';
+import '../../../core/widgets/skolr_card.dart';
+import '../../../core/widgets/skolr_text_field.dart';
 import '../student_model.dart';
 import '../student_provider.dart';
 
@@ -19,6 +20,10 @@ class _AddStudentScreenState extends ConsumerState<AddStudentScreen> {
   final _batchController = TextEditingController();
   final _phoneController = TextEditingController();
 
+  String? _nameError;
+  String? _batchError;
+  String? _phoneError;
+
   @override
   void dispose() {
     _nameController.dispose();
@@ -32,10 +37,13 @@ class _AddStudentScreenState extends ConsumerState<AddStudentScreen> {
     final batch = _batchController.text.trim();
     final phone = _phoneController.text.trim();
 
-    if (name.isEmpty || batch.isEmpty || phone.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please fill in all fields')),
-      );
+    setState(() {
+      _nameError = name.isEmpty ? 'Name is required' : null;
+      _batchError = batch.isEmpty ? 'Batch is required' : null;
+      _phoneError = phone.isEmpty ? 'Phone is required' : null;
+    });
+
+    if (_nameError != null || _batchError != null || _phoneError != null) {
       return;
     }
 
@@ -53,62 +61,129 @@ class _AddStudentScreenState extends ConsumerState<AddStudentScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final brightness = Theme.of(context).brightness;
+    final cs = Theme.of(context).colorScheme;
+
     return Scaffold(
+      extendBodyBehindAppBar: true,
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
         title: const Text('Add Student'),
       ),
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: SkolrGradients.pageBackground(brightness),
+        ),
+        child: SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(SkolrSpacing.xl),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SkolrGap.md(),
+                Text(
+                  'Student Details',
+                  style: SkolrTypography.headlineLarge(color: cs.onSurface),
+                ),
+                const SkolrGap.xs(),
+                Text(
+                  'Fill in the information below',
+                  style: SkolrTypography.bodyLarge(
+                    color: cs.onSurfaceVariant,
+                  ),
+                ),
+                const SkolrGap.xxl(),
 
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(20),
+                SkolrCard(
+                  padding: const EdgeInsets.all(SkolrSpacing.xl),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _FieldLabel('Full Name', required: true),
+                      const SkolrGap.sm(),
+                      SkolrTextField(
+                        controller: _nameController,
+                        hint: 'e.g. Riya Sharma',
+                        error: _nameError,
+                        prefixIcon: const Icon(Icons.person_outline_rounded),
+                        textInputAction: TextInputAction.next,
+                        autofocus: true,
+                        onChanged: (_) {
+                          if (_nameError != null) {
+                            setState(() => _nameError = null);
+                          }
+                        },
+                      ),
+                      const SkolrGap.lg(),
+                      _FieldLabel('Batch / Class', required: true),
+                      const SkolrGap.sm(),
+                      SkolrTextField(
+                        controller: _batchController,
+                        hint: 'e.g. JEE 2026 Batch A',
+                        error: _batchError,
+                        prefixIcon: const Icon(Icons.class_outlined),
+                        textInputAction: TextInputAction.next,
+                        onChanged: (_) {
+                          if (_batchError != null) {
+                            setState(() => _batchError = null);
+                          }
+                        },
+                      ),
+                      const SkolrGap.lg(),
+                      _FieldLabel('Phone Number', required: true),
+                      const SkolrGap.sm(),
+                      SkolrTextField(
+                        controller: _phoneController,
+                        hint: '+91 9876543210',
+                        error: _phoneError,
+                        keyboardType: TextInputType.phone,
+                        prefixIcon: const Icon(Icons.phone_outlined),
+                        textInputAction: TextInputAction.done,
+                        onSubmitted: (_) => _save(),
+                        onChanged: (_) {
+                          if (_phoneError != null) {
+                            setState(() => _phoneError = null);
+                          }
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+                const SkolrGap.xxl(),
 
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-
-            children: [
-              const SizedBox(height: 10),
-
-              const Text('Student Details', style: AppTextStyles.heading),
-
-              const SizedBox(height: 8),
-
-              const Text(
-                'Fill in the information below',
-                style: AppTextStyles.subheading,
-              ),
-
-              const SizedBox(height: 30),
-
-              CustomTextField(
-                hintText: 'Full Name',
-                controller: _nameController,
-              ),
-
-              const SizedBox(height: 16),
-
-              CustomTextField(
-                hintText: 'Batch / Class',
-                controller: _batchController,
-              ),
-
-              const SizedBox(height: 16),
-
-              CustomTextField(
-                hintText: 'Phone Number',
-                controller: _phoneController,
-                keyboardType: TextInputType.phone,
-              ),
-
-              const SizedBox(height: 32),
-
-              PrimaryButton(
-                text: 'Save Student',
-                onPressed: _save,
-              ),
-            ],
+                PrimaryButton(
+                  text: 'Save Student',
+                  icon: Icons.check_rounded,
+                  onPressed: _save,
+                ),
+              ],
+            ),
           ),
         ),
       ),
+    );
+  }
+}
+
+class _FieldLabel extends StatelessWidget {
+  const _FieldLabel(this.text, {this.required = false});
+  final String text;
+  final bool required;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Row(
+      children: [
+        Text(text, style: SkolrTypography.labelLarge(color: cs.onSurface)),
+        if (required) ...[
+          const SizedBox(width: 4),
+          Text(
+            '*',
+            style: SkolrTypography.labelLarge(color: SkolrColors.danger),
+          ),
+        ],
+      ],
     );
   }
 }

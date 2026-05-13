@@ -1,8 +1,18 @@
 import 'package:flutter/material.dart';
 
 import '../../modules/attendance/attendance_model.dart';
-import '../theme/app_colors.dart';
-import '../theme/app_text_styles.dart';
+import '../design_system/design_system.dart';
+import 'skolr_avatar.dart';
+
+// ---------------------------------------------------------------------------
+// AttendanceCard — toggle row for marking present/absent.
+//
+// Visual recipe:
+//   • Animated border color (green if present, red if absent)
+//   • SkolrAvatar (auto-tinted by name)
+//   • Switch toggle with haptic feedback
+//   • Status label under switch ("Present" / "Absent")
+// ---------------------------------------------------------------------------
 
 class AttendanceCard extends StatelessWidget {
   final AttendanceModel record;
@@ -18,87 +28,75 @@ class AttendanceCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final isPresent = record.isPresent;
-    final accentColor = isPresent ? AppColors.success : AppColors.error;
+    final accentColor =
+        isPresent ? SkolrColors.success : SkolrColors.danger;
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-
-      decoration: BoxDecoration(
-        color: AppColors.white,
-        borderRadius: BorderRadius.circular(16),
-
-        border: Border.all(
-          color: isPresent
-              ? AppColors.success.withValues(alpha: 0.25)
-              : AppColors.border,
+    return Padding(
+      padding: const EdgeInsets.only(bottom: SkolrSpacing.sm),
+      child: AnimatedContainer(
+        duration: SkolrMotion.fast,
+        padding: const EdgeInsets.symmetric(
+          horizontal: SkolrSpacing.lg,
+          vertical: SkolrSpacing.md,
         ),
-
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 8,
-            offset: const Offset(0, 3),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              accentColor.withValues(alpha: isDark ? 0.10 : 0.06),
+              accentColor.withValues(alpha: isDark ? 0.04 : 0.02),
+            ],
           ),
-        ],
-      ),
-
-      child: Row(
-        children: [
-          CircleAvatar(
-            radius: 24,
-            backgroundColor: accentColor.withValues(alpha: 0.12),
-            child: Text(
-              record.studentName[0].toUpperCase(),
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: accentColor,
+          borderRadius: SkolrRadius.lg,
+          border: Border.all(
+            color: accentColor.withValues(alpha: isDark ? 0.35 : 0.25),
+          ),
+        ),
+        child: Row(
+          children: [
+            SkolrAvatar(name: record.studentName, size: SkolrAvatarSize.md),
+            const SkolrGap.md(),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    record.studentName,
+                    style: SkolrTypography.titleSmall(color: cs.onSurface),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    batch,
+                    style: SkolrTypography.bodySmall(
+                      color: cs.onSurfaceVariant,
+                    ),
+                  ),
+                ],
               ),
             ),
-          ),
-
-          const SizedBox(width: 14),
-
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            Column(
               children: [
-                Text(
-                  record.studentName,
-                  style: AppTextStyles.heading.copyWith(fontSize: 16),
+                Switch(
+                  value: isPresent,
+                  onChanged: (_) => onToggle(),
+                  activeThumbColor: Colors.white,
+                  activeTrackColor: SkolrColors.success,
+                  inactiveThumbColor: cs.onSurfaceVariant,
+                  inactiveTrackColor:
+                      SkolrColors.danger.withValues(alpha: 0.3),
                 ),
-                const SizedBox(height: 3),
                 Text(
-                  batch,
-                  style: AppTextStyles.subheading.copyWith(fontSize: 13),
+                  isPresent ? 'Present' : 'Absent',
+                  style: SkolrTypography.labelMedium(color: accentColor),
                 ),
               ],
             ),
-          ),
-
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Switch(
-                value: isPresent,
-                onChanged: (_) => onToggle(),
-                activeThumbColor: AppColors.success,
-                inactiveThumbColor: AppColors.error,
-                inactiveTrackColor: AppColors.error.withValues(alpha: 0.2),
-              ),
-              Text(
-                isPresent ? 'Present' : 'Absent',
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  color: accentColor,
-                ),
-              ),
-            ],
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

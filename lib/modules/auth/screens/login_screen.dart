@@ -18,14 +18,14 @@ class LoginScreen extends StatelessWidget {
             children: [
               const SizedBox(height: 60),
 
-              const Text(
+              Text(
                 "Welcome to Skolr",
                 style: AppTextStyles.heading,
               ),
 
               const SizedBox(height: 10),
 
-              const Text(
+              Text(
                 "Manage your institute easily",
                 style: AppTextStyles.subheading,
               ),
